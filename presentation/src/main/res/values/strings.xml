@@ -86,6 +86,10 @@
 	<string name="snack_bar_action_title_sort_biggest">Biggest first</string>
 	<string name="snack_bar_action_title_sort_smallest">Smallest first</string>
 
+	<string name="action_view_mode">View mode</string>
+	<string name="action_view_mode_list">List view</string>
+	<string name="action_view_mode_grid">Grid view</string>
+
 	<string name="snack_bar_action_title_save" translatable="false">@string/screen_share_files_save_button_text</string>
 
 	<string name="snack_bar_cryptomator_variants_title">Read more</string>

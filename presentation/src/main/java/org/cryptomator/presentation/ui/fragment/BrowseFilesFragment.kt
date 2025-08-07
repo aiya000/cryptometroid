@@ -9,6 +9,7 @@ import android.view.View.VISIBLE
 import android.widget.RelativeLayout
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.NO_POSITION
 import androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_IDLE
@@ -31,6 +32,8 @@ import org.cryptomator.presentation.model.ProgressModel
 import org.cryptomator.presentation.presenter.BrowseFilesPresenter
 import org.cryptomator.presentation.ui.adapter.BrowseFilesAdapter
 import org.cryptomator.presentation.util.ResourceHelper.Companion.getPixelOffset
+import org.cryptomator.util.FileViewMode
+import org.cryptomator.util.SharedPreferencesHandler
 import java.util.Optional
 import javax.inject.Inject
 
@@ -42,6 +45,9 @@ class BrowseFilesFragment : BaseFragment<FragmentBrowseFilesBinding>(FragmentBro
 
 	@Inject
 	lateinit var browseFilesPresenter: BrowseFilesPresenter
+
+	@Inject
+	lateinit var sharedPreferencesHandler: SharedPreferencesHandler
 
 	private var navigationMode: ChooseCloudNodeSettings.NavigationMode? = null
 
@@ -123,7 +129,10 @@ class BrowseFilesFragment : BaseFragment<FragmentBrowseFilesBinding>(FragmentBro
 		cloudNodesAdapter.setChooseCloudNodeSettings(chooseCloudNodeSettings)
 		navigationMode?.let { cloudNodesAdapter.updateNavigationMode(it) }
 
-		binding.recyclerViewLayout.recyclerView.layoutManager = LinearLayoutManager(context())
+		// Restore saved view mode
+		val savedViewMode = sharedPreferencesHandler.fileViewMode()
+		updateViewMode(savedViewMode)
+
 		binding.recyclerViewLayout.recyclerView.adapter = cloudNodesAdapter
 		binding.recyclerViewLayout.recyclerView.setHasFixedSize(true)
 		binding.recyclerViewLayout.recyclerView.setPadding(0, 0, 0, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 88f, resources.displayMetrics).toInt())
@@ -346,6 +355,23 @@ class BrowseFilesFragment : BaseFragment<FragmentBrowseFilesBinding>(FragmentBro
 
 	fun setSort(comparator: Comparator<CloudNodeModel<*>>) {
 		cloudNodesAdapter.setSort(comparator)
+	}
+
+	fun updateViewMode(viewMode: FileViewMode) {
+		val recyclerView = binding.recyclerViewLayout.recyclerView
+		
+		when (viewMode) {
+			FileViewMode.LIST -> {
+				recyclerView.layoutManager = LinearLayoutManager(context())
+			}
+			FileViewMode.GRID -> {
+				val spanCount = 3 // Number of columns in grid
+				recyclerView.layoutManager = GridLayoutManager(context(), spanCount)
+			}
+		}
+		
+		cloudNodesAdapter.updateViewMode(viewMode)
+		cloudNodesAdapter.notifyDataSetChanged()
 	}
 
 	companion object {
