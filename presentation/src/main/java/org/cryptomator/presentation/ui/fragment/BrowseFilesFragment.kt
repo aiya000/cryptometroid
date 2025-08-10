@@ -360,6 +360,9 @@ class BrowseFilesFragment : BaseFragment<FragmentBrowseFilesBinding>(FragmentBro
 	fun updateViewMode(viewMode: FileViewMode) {
 		val recyclerView = binding.recyclerViewLayout.recyclerView
 		
+		// Update adapter view mode
+		cloudNodesAdapter.setViewMode(viewMode)
+		
 		when (viewMode) {
 			FileViewMode.LIST -> {
 				recyclerView.layoutManager = LinearLayoutManager(context())
@@ -369,9 +372,6 @@ class BrowseFilesFragment : BaseFragment<FragmentBrowseFilesBinding>(FragmentBro
 				recyclerView.layoutManager = GridLayoutManager(context(), spanCount)
 			}
 		}
-		
-		cloudNodesAdapter.updateViewMode(viewMode)
-		cloudNodesAdapter.notifyDataSetChanged()
 	}
 
 	companion object {
