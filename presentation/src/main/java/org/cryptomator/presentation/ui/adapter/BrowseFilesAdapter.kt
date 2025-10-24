@@ -100,6 +100,11 @@ constructor(
 	fun updateViewMode(viewMode: FileViewMode) {
 		this.viewMode = viewMode
 	}
+	
+	fun setViewMode(viewMode: FileViewMode) {
+		this.viewMode = viewMode
+		notifyDataSetChanged()
+	}
 
 	fun renderedCloudNodes(): List<CloudNodeModel<*>> {
 		return itemCollection
