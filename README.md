@@ -79,6 +79,6 @@ This project is dual-licensed under the GPLv3 for FOSS projects as well as a com
 
 This repository is a fork of [cryptomator/android](https://github.com/cryptomator/android), the official Cryptomator app for Android, developed and maintained by [Skymatic GmbH](https://skymatic.de/).
 
-Everything that makes this app useful — the client-side encryption, the cloud integrations, the UI — is their work. This fork only changes the application ID, the app display name, and the launcher icon, so that it can be installed alongside the official app on the same device.
+Everything that makes this app useful — the client-side encryption, the cloud integrations, the UI — is their work. This fork started out by changing the application ID, the app display name, and the launcher icon, so that it can be installed alongside the official app on the same device, and it may diverge further from upstream over time.
 
 Huge thanks to the Cryptomator team for building and maintaining such a great open source project.
