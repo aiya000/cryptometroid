@@ -45,11 +45,14 @@ import org.cryptomator.presentation.ui.dialog.CreateFolderDialog
 import org.cryptomator.presentation.ui.dialog.ExportCloudFilesDialog
 import org.cryptomator.presentation.ui.dialog.FileNameDialog
 import org.cryptomator.presentation.ui.dialog.FileTypeNotSupportedDialog
+import org.cryptomator.presentation.ui.dialog.GenerateAllThumbnailsDialog
 import org.cryptomator.presentation.ui.dialog.NoDirFileOrEmptyDialog
 import org.cryptomator.presentation.ui.dialog.ReplaceDialog
 import org.cryptomator.presentation.ui.dialog.SymLinkDialog
 import org.cryptomator.presentation.ui.dialog.UploadCloudFileDialog
 import org.cryptomator.presentation.ui.fragment.BrowseFilesFragment
+import org.cryptomator.util.FileViewMode
+import org.cryptomator.util.ThumbnailsOption
 import java.util.regex.Pattern
 import javax.inject.Inject
 
@@ -64,6 +67,7 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 	ExportCloudFilesDialog.Callback,
 	SymLinkDialog.CallBack,
 	NoDirFileOrEmptyDialog.CallBack,
+	GenerateAllThumbnailsDialog.Callback,
 	SearchView.OnQueryTextListener,
 	SearchView.OnCloseListener {
 
@@ -235,6 +239,14 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 			browseFilesPresenter.onRefreshTriggered(browseFilesFragment().folder)
 			true
 		}
+		R.id.action_view_mode -> {
+			toggleViewMode()
+			true
+		}
+		R.id.action_generate_all_thumbnails -> {
+			showGenerateAllThumbnailsDialog()
+			true
+		}
 		android.R.id.home -> {
 			// Respond to the action bar's Up/Home button
 			if (isNavigationMode(SELECT_ITEMS)) {
@@ -256,9 +268,18 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 			menu.findItem(R.id.action_share_items).isEnabled = enableGeneralSelectionActions
 		}
 
+		// Show "Generate All Thumbnails" menu item only when thumbnail generation is enabled
+		val generateAllThumbnailsItem = menu.findItem(R.id.action_generate_all_thumbnails)
+		if (generateAllThumbnailsItem != null) {
+			val thumbnailOption = browseFilesPresenter.getThumbnailsOption()
+			generateAllThumbnailsItem.isVisible = (thumbnailOption == ThumbnailsOption.PER_FILE || thumbnailOption == ThumbnailsOption.PER_FOLDER)
+		}
+
 		val searchView = menu.findItem(R.id.action_search).actionView as SearchView
 		searchView.setOnQueryTextListener(this)
 		searchView.setOnCloseListener(this)
+
+		updateViewModeIcon(menu)
 
 		return super.onPrepareOptionsMenu(menu)
 	}
@@ -466,6 +487,10 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 		showDialog(CreateFolderDialog())
 	}
 
+	private fun showGenerateAllThumbnailsDialog() {
+		showDialog(GenerateAllThumbnailsDialog.newInstance())
+	}
+
 	override fun onUploadFilesClicked(folder: CloudFolderModel) {
 		browseFilesPresenter.onUploadFilesClicked(folder)
 	}
@@ -541,6 +566,14 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 		browseFilesFragment().showProgress(nodes, progress)
 	}
 
+	override fun replaceImageWithDownloadIcon(nodes: CloudNodeModel<*>) {
+		browseFilesFragment().replaceImageWithDownloadIcon(nodes)
+	}
+
+	override fun replaceImagesWithDownloadIcon(nodes: List<CloudNodeModel<*>>) {
+		browseFilesFragment().replaceImagesWithDownloadIcon(nodes)
+	}
+
 	override fun hideProgress(node: CloudNodeModel<*>) {
 		browseFilesFragment().hideProgress(node)
 	}
@@ -564,6 +597,10 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 		if (isNavigationMode(SELECT_ITEMS)) {
 			browseFilesPresenter.disableSelectionMode()
 		}
+	}
+
+	override fun onGenerateAllThumbnailsConfirmed() {
+		browseFilesPresenter.onGenerateAllThumbnailsRequested(browseFilesFragment().folder)
 	}
 
 	override fun onUploadCanceled() {
@@ -611,5 +648,35 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 
 	override fun navigateFolderBackBecauseNoDirFile() {
 		onBackPressed()
+	}
+
+	private fun toggleViewMode() {
+		val currentMode = sharedPreferencesHandler.fileViewMode()
+		val newMode = if (currentMode == FileViewMode.LIST) {
+			FileViewMode.GRID
+		} else {
+			FileViewMode.LIST
+		}
+		sharedPreferencesHandler.setFileViewMode(newMode)
+		browseFilesFragment().updateViewMode(newMode)
+		invalidateOptionsMenu()
+	}
+
+	private fun updateViewModeIcon(menu: Menu) {
+		val viewModeItem = menu.findItem(R.id.action_view_mode)
+		if (viewModeItem != null) {
+			val currentMode = sharedPreferencesHandler.fileViewMode()
+			if (currentMode == FileViewMode.LIST) {
+				viewModeItem.setIcon(R.drawable.ic_view_list)
+				viewModeItem.setTitle(R.string.action_view_mode_list)
+			} else {
+				viewModeItem.setIcon(R.drawable.ic_view_grid)
+				viewModeItem.setTitle(R.string.action_view_mode_grid)
+			}
+		}
+	}
+
+	override fun showBulkThumbnailGenerationProgress(show: Boolean) {
+		browseFilesFragment().showBulkThumbnailGenerationProgress(show)
 	}
 }

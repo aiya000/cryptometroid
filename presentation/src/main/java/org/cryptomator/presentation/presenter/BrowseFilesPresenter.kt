@@ -26,10 +26,14 @@ import org.cryptomator.domain.usecases.DownloadFile
 import org.cryptomator.domain.usecases.GetDecryptedCloudForVaultUseCase
 import org.cryptomator.domain.usecases.PrepareDownloadFilesUseCase
 import org.cryptomator.domain.usecases.ResultRenamed
+import org.cryptomator.domain.usecases.cloud.AssociateThumbnailsUseCase
+import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationState
 import org.cryptomator.domain.usecases.cloud.CreateFolderUseCase
 import org.cryptomator.domain.usecases.cloud.DeleteNodesUseCase
 import org.cryptomator.domain.usecases.cloud.DownloadFilesUseCase
 import org.cryptomator.domain.usecases.cloud.DownloadState
+import org.cryptomator.domain.usecases.cloud.FileTransferState
+import org.cryptomator.domain.usecases.cloud.GenerateAllThumbnailsUseCase
 import org.cryptomator.domain.usecases.cloud.GetCloudListRecursiveUseCase
 import org.cryptomator.domain.usecases.cloud.GetCloudListUseCase
 import org.cryptomator.domain.usecases.cloud.MoveFilesUseCase
@@ -80,6 +84,7 @@ import org.cryptomator.presentation.workflow.CreateNewVaultWorkflow
 import org.cryptomator.presentation.workflow.Workflow
 import org.cryptomator.util.ExceptionUtil
 import org.cryptomator.util.SharedPreferencesHandler
+import org.cryptomator.util.ThumbnailsOption
 import org.cryptomator.util.file.FileCacheUtils
 import org.cryptomator.util.file.MimeType
 import org.cryptomator.util.file.MimeTypes
@@ -94,6 +99,7 @@ import timber.log.Timber
 @PerView
 class BrowseFilesPresenter @Inject constructor( //
 	private val getCloudListUseCase: GetCloudListUseCase,  //
+	private val associateThumbnailsUseCase: AssociateThumbnailsUseCase,  //
 	private val createFolderUseCase: CreateFolderUseCase,  //
 	private val downloadFilesUseCase: DownloadFilesUseCase,  //
 	private val deleteNodesUseCase: DeleteNodesUseCase,  //
@@ -125,6 +131,7 @@ class BrowseFilesPresenter @Inject constructor( //
 	private val shareFileHelper: ShareFileHelper,  //
 	private val downloadFileUtil: DownloadFileUtil,  //
 	private val sharedPreferencesHandler: SharedPreferencesHandler,  //
+	private val generateAllThumbnailsUseCase: GenerateAllThumbnailsUseCase,  //
 	exceptionMappings: ExceptionHandlers
 ) : Presenter<BrowseFilesView>(exceptionMappings) {
 
@@ -132,6 +139,9 @@ class BrowseFilesPresenter @Inject constructor( //
 	private lateinit var filesForUpload: MutableMap<String, UploadFile>
 	private lateinit var existingFilesForUpload: MutableMap<String, UploadFile>
 	private lateinit var downloadFiles: MutableList<DownloadFile>
+
+	private var availableThumbnailsThreads = MAX_CONCURRENT_THUMBNAILS_THREADS
+	private val filesBeingDownloaded: MutableSet<CloudFileModel> = mutableSetOf()
 
 	private var resumedAfterAuthentication = false
 
@@ -157,6 +167,35 @@ class BrowseFilesPresenter @Inject constructor( //
 	@JvmField
 	var openWritableFileNotification: OpenWritableFileNotification? = null
 
+	private fun downloadAndGenerateThumbnails(visibleCloudFiles: List<CloudFileModel>) {
+		filesBeingDownloaded.addAll(visibleCloudFiles)
+		view?.replaceImagesWithDownloadIcon(
+			visibleCloudFiles
+		)
+		downloadFilesUseCase //
+			.withDownloadFiles(downloadFileUtil.createDownloadFilesFor(this, visibleCloudFiles)) //
+			.run(object : DefaultProgressAwareResultHandler<List<CloudFile>, DownloadState>() {
+				override fun onFinished() {
+					availableThumbnailsThreads++ // releasing the passed baton
+					Timber.tag("THUMBNAILS").i("[RELEASE] downloadAndGen (${availableThumbnailsThreads}/${MAX_CONCURRENT_THUMBNAILS_THREADS})")
+				}
+
+				override fun onProgress(progress: Progress<DownloadState>) {
+					if (progress.isCompleteAndHasState) {
+						val cloudFile = progress.state().file()
+						val cloudFileModel = cloudFileModelMapper.toModel(cloudFile)
+						filesBeingDownloaded.remove(cloudFileModel)
+						view?.addOrUpdateCloudNode(cloudFileModel)
+					}
+				}
+
+				override fun onError(e: Throwable) {
+					view?.hideProgress(visibleCloudFiles)
+					super.onError(e)
+				}
+			})
+	}
+
 	override fun workflows(): Iterable<Workflow<*>> {
 		return listOf(addExistingVaultWorkflow, createNewVaultWorkflow)
 	}
@@ -169,6 +208,14 @@ class BrowseFilesPresenter @Inject constructor( //
 				.run(DefaultResultHandler())
 		}
 		setRefreshOnBackPressEnabled(enableRefreshOnBackpressSupplier.setInAction(false))
+
+		// Re-associate thumbnails for visible images when returning from image preview
+		val images = view?.renderedCloudNodes()?.filterIsInstance<CloudFileModel>()?.filter { file ->
+			isImageMediaType(file.name)
+		} ?: return
+		if (images.isNotEmpty()) {
+			associateThumbnails(images.take(20)) // Increased from 10 to 20 for better coverage
+		}
 	}
 
 	fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -179,6 +226,9 @@ class BrowseFilesPresenter @Inject constructor( //
 
 	fun onBackPressed() {
 		unsubscribeAll()
+		Timber.tag("THUMBNAILS").i("[RESET] unsubscribe to all")
+		availableThumbnailsThreads = MAX_CONCURRENT_THUMBNAILS_THREADS
+		filesBeingDownloaded.clear()
 	}
 
 	fun onFolderDisplayed(folder: CloudFolderModel) {
@@ -201,6 +251,10 @@ class BrowseFilesPresenter @Inject constructor( //
 						clearCloudList()
 					} else {
 						showCloudNodesCollectionInView(cloudNodes)
+						val images = view?.renderedCloudNodes()?.filterIsInstance<CloudFileModel>()?.filter { file ->
+							isImageMediaType(file.name)
+						} ?: return
+						associateThumbnails(images.take(10))
 					}
 					view?.showLoading(false)
 				}
@@ -225,6 +279,64 @@ class BrowseFilesPresenter @Inject constructor( //
 							super.onError(e)
 						}
 					}
+				}
+			})
+	}
+
+	fun associateThumbnails(cloudNodes: List<CloudNodeModel<*>>) {
+		if (!sharedPreferencesHandler.useLruCache() || sharedPreferencesHandler.generateThumbnails() == ThumbnailsOption.NEVER) {
+			return
+		}
+		if (cloudNodes.isEmpty()) {
+			return
+		}
+		if (availableThumbnailsThreads == 0) {
+			Timber.tag("THUMBNAILS").i("[DROP] all threads are in use!")
+			return
+		}
+
+		availableThumbnailsThreads--
+		Timber.tag("THUMBNAILS").i("[ACQUIRE] associate (${availableThumbnailsThreads}/${MAX_CONCURRENT_THUMBNAILS_THREADS})")
+
+		val associatedCloudNodes = ArrayList<CloudNodeModel<*>>()
+		associateThumbnailsUseCase.withList(cloudNodeModelMapper.fromModels(cloudNodes))
+			.run(object : DefaultProgressAwareResultHandler<Void, FileTransferState>() {
+				override fun onProgress(progress: Progress<FileTransferState>) {
+					val state = progress.state()
+					Timber.tag("THUMBNAILS").i("associateThumbnailsUseCase - onProgress")
+
+					state?.let { state ->
+						val file = cloudFileModelMapper.toModel(state.file())
+						view?.addOrUpdateCloudNode(file)
+						associatedCloudNodes.add(file)
+					}
+				}
+
+				override fun onFinished() {
+					Timber.tag("THUMBNAILS").i("associateThumbnailsUseCase - onFinished")
+
+					if (sharedPreferencesHandler.generateThumbnails() != ThumbnailsOption.PER_FOLDER) {
+						availableThumbnailsThreads++
+						Timber.tag("THUMBNAILS").i("[RELEASE] associate (${availableThumbnailsThreads}/${MAX_CONCURRENT_THUMBNAILS_THREADS})")
+						return
+					}
+					val toDownload = ArrayList<CloudFileModel>()
+					cloudNodes.filter { node -> !associatedCloudNodes.contains(node) }.forEach { node ->
+						if (node is CloudFileModel && isImageMediaType(node.name) && node.thumbnail == null) {
+							if (filesBeingDownloaded.contains(node)) {
+								Timber.tag("THUMBNAILS").i("[SKIP] No double download!")
+							} else {
+								toDownload.add(node)
+							}
+						}
+					}
+					if (toDownload.isEmpty()) {
+						availableThumbnailsThreads++
+						Timber.tag("THUMBNAILS").i("[RELEASE] associate (${availableThumbnailsThreads}/${MAX_CONCURRENT_THUMBNAILS_THREADS})")
+						return
+					}
+
+					downloadAndGenerateThumbnails(toDownload) // passing of the baton, do not increase the number of threads
 				}
 			})
 	}
@@ -892,6 +1004,9 @@ class BrowseFilesPresenter @Inject constructor( //
 
 	fun onFolderClicked(cloudFolderModel: CloudFolderModel) {
 		unsubscribeAll()
+		Timber.tag("THUMBNAILS").i("[RESET] unsubscribe to all")
+		availableThumbnailsThreads = MAX_CONCURRENT_THUMBNAILS_THREADS
+		filesBeingDownloaded.clear()
 		view?.navigateTo(cloudFolderModel)
 	}
 
@@ -1234,6 +1349,34 @@ class BrowseFilesPresenter @Inject constructor( //
 		activity().invalidateOptionsMenu()
 	}
 
+	fun getThumbnailsOption(): ThumbnailsOption {
+		return sharedPreferencesHandler.generateThumbnails()
+	}
+
+	fun onGenerateAllThumbnailsRequested(folder: CloudFolderModel) {
+		view?.showBulkThumbnailGenerationProgress(true)
+		generateAllThumbnailsUseCase
+			.withFolder(cloudFolderModelMapper.fromModel(folder))
+			.run(object : DefaultProgressAwareResultHandler<Void, BulkThumbnailGenerationState>() {
+				override fun onProgress(progress: Progress<BulkThumbnailGenerationState>) {
+					val state = progress.state()
+					state?.let { thumbnailState ->
+						val file = cloudFileModelMapper.toModel(thumbnailState.file())
+						view?.addOrUpdateCloudNode(file)
+					}
+				}
+
+				override fun onFinished() {
+					view?.showBulkThumbnailGenerationProgress(false)
+				}
+
+				override fun onError(e: Throwable) {
+					view?.showBulkThumbnailGenerationProgress(false)
+					super.onError(e)
+				}
+			})
+	}
+
 	interface ExportOperation : Serializable {
 
 		fun export(presenter: BrowseFilesPresenter, downloadFiles: List<DownloadFile>)
@@ -1264,6 +1407,7 @@ class BrowseFilesPresenter @Inject constructor( //
 	companion object {
 
 		const val OPEN_FILE_FINISHED = 12
+		private const val MAX_CONCURRENT_THUMBNAILS_THREADS = 2
 
 		val EXPORT_AFTER_APP_CHOOSER: ExportOperation = object : ExportOperation {
 			override fun export(presenter: BrowseFilesPresenter, downloadFiles: List<DownloadFile>) {
@@ -1291,7 +1435,8 @@ class BrowseFilesPresenter @Inject constructor( //
 			moveFoldersUseCase, //
 			getDecryptedCloudForVaultUseCase, //
 			calculateFileHashUseCase, //
-			prepareDownloadFilesUseCase
+			prepareDownloadFilesUseCase, //
+			associateThumbnailsUseCase
 		)
 		this.authenticationExceptionHandler = authenticationExceptionHandler
 	}

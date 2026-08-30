@@ -11,8 +11,10 @@ import org.cryptomator.domain.exception.CloudNodeAlreadyExistsException
 import org.cryptomator.domain.exception.FatalBackendException
 import org.cryptomator.domain.repository.CloudContentRepository
 import org.cryptomator.domain.usecases.ProgressAware
+import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationState
 import org.cryptomator.domain.usecases.cloud.DataSource
 import org.cryptomator.domain.usecases.cloud.DownloadState
+import org.cryptomator.domain.usecases.cloud.FileTransferState
 import org.cryptomator.domain.usecases.cloud.UploadState
 import java.io.File
 import java.io.OutputStream
@@ -93,6 +95,18 @@ internal class CryptoCloudContentRepository(context: Context, cloudContentReposi
 	@Throws(BackendException::class)
 	override fun read(file: CryptoFile, encryptedTmpFile: File?, data: OutputStream, progressAware: ProgressAware<DownloadState>) {
 		cryptoImpl.read(file, data, progressAware)
+	}
+
+	@Throws(BackendException::class)
+	override fun associateThumbnails(list: List<CryptoNode>, progressAware: ProgressAware<FileTransferState>) {
+		cryptoImpl.associateThumbnails(list, progressAware)
+	}
+
+	@Throws(BackendException::class)
+	override fun generateAllThumbnails(folder: CryptoFolder, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
+		timber.log.Timber.d("CryptoCloudContentRepository.generateAllThumbnails called for folder: ${folder.name}")
+		cryptoImpl.generateAllThumbnails(folder, progressAware)
+		timber.log.Timber.d("CryptoCloudContentRepository.generateAllThumbnails completed")
 	}
 
 	@Throws(BackendException::class)
