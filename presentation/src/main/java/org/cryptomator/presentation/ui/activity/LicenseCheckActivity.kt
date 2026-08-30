@@ -68,7 +68,7 @@ class LicenseCheckActivity : BaseActivity<ActivityLayoutObscureAwareBinding>(Act
 	}
 
 	private fun setupToolbar() {
-		binding.mtToolbar.toolbar.title = getString(R.string.app_name).uppercase()
+		binding.mtToolbar.toolbar.title = getString(R.string.app_name)
 		setSupportActionBar(binding.mtToolbar.toolbar)
 	}
 
