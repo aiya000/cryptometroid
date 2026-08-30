@@ -55,6 +55,19 @@
 		<item>PER_FOLDER</item>
 	</string-array>
 
+	<string-array name="bulk_thumbnail_generation_concurrency_entries">
+		<item>1</item>
+		<item>2</item>
+		<item>3</item>
+		<item>4</item>
+	</string-array>
+	<string-array name="bulk_thumbnail_generation_concurrency_values">
+		<item>1</item>
+		<item>2</item>
+		<item>3</item>
+		<item>4</item>
+	</string-array>
+
 	<string-array name="update_interval_entries">
 		<item>@string/update_interval_1d</item>
 		<item>@string/update_interval_never</item>

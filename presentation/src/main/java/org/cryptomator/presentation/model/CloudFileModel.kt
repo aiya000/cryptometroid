@@ -11,8 +11,10 @@ class CloudFileModel(cloudFile: CloudFile, val icon: FileIcon) : CloudNodeModel<
 
 	val modified: Date? = cloudFile.modified
 	val size: Long? = cloudFile.size
-	val thumbnail : File? 
+	val thumbnail : File?
 		get() = if (toCloudNode() is CryptoFile) (toCloudNode() as CryptoFile).thumbnail else null
+
+	var thumbnailGenerationStatus: ThumbnailGenerationStatus? = null
 
 	constructor(cloudFileRenamed: ResultRenamed<CloudFile>, icon: FileIcon) : this(cloudFileRenamed.value(), icon) {
 		oldName = cloudFileRenamed.oldName

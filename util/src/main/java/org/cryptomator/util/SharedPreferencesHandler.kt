@@ -176,6 +176,10 @@ constructor(context: Context) : SharedPreferences.OnSharedPreferenceChangeListen
 		return defaultSharedPreferences.getValue(USE_LRU_CACHE, true)
 	}
 
+	fun bulkThumbnailGenerationConcurrency(): Int {
+		return defaultSharedPreferences.getValue(BULK_THUMBNAIL_GENERATION_CONCURRENCY, "2").toInt()
+	}
+
 	override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
 		if (LOCK_TIMEOUT == key) {
 			val lockTimeout = lockTimeout
@@ -362,6 +366,7 @@ constructor(context: Context) : SharedPreferences.OnSharedPreferenceChangeListen
 		const val LICENSES_ACTIVITY = "licensesActivity"
 		const val TRUSTED_HUB_HOSTS = "trustedHubHosts"
 		const val THUMBNAIL_GENERATION = "thumbnailGeneration"
+		const val BULK_THUMBNAIL_GENERATION_CONCURRENCY = "bulkThumbnailGenerationConcurrency"
 		private const val FILE_VIEW_MODE = "fileViewMode"
 	}
 

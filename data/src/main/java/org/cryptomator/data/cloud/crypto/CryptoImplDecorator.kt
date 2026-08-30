@@ -25,6 +25,7 @@ import org.cryptomator.domain.repository.CloudContentRepository
 import org.cryptomator.domain.usecases.DownloadFileReplacingProgressAware
 import org.cryptomator.domain.usecases.ProgressAware
 import org.cryptomator.domain.usecases.UploadFileReplacingProgressAware
+import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationCancelToken
 import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationState
 import org.cryptomator.domain.usecases.cloud.DataSource
 import org.cryptomator.domain.usecases.cloud.DownloadState
@@ -83,6 +84,8 @@ abstract class CryptoImplDecorator(
 		val threadFactory = ThreadFactoryBuilder().setNameFormat("thumbnail-generation-thread-%d").build()
 		Executors.newCachedThreadPool(threadFactory)
 	}
+
+	private val bulkThumbnailGenerationProgressLock = Any()
 
 	protected fun getLruCacheFor(type: CloudType): DiskLruCache? {
 		return getOrCreateLruCache(getCacheTypeFromCloudType(type), sharedPreferencesHandler.lruCacheSize())
@@ -727,9 +730,9 @@ abstract class CryptoImplDecorator(
 	}
 
 	@Throws(BackendException::class)
-	fun generateAllThumbnails(cryptoFolder: CryptoFolder, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
+	fun generateAllThumbnails(cryptoFolder: CryptoFolder, cancelToken: BulkThumbnailGenerationCancelToken, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
 		Timber.d("generateAllThumbnails called for folder: ${cryptoFolder.name}")
-		
+
 		if (!isGenerateThumbnailsEnabled()) {
 			Timber.d("generateAllThumbnails: thumbnails generation is disabled, returning early")
 			return
@@ -747,46 +750,33 @@ abstract class CryptoImplDecorator(
 			val cloudType = cloudFiles.firstOrNull()?.cloudFile?.cloud?.type() ?: return
 			val diskCache = getLruCacheFor(cloudType) ?: return
 
-			Timber.d("Starting bulk thumbnail generation for ${cloudFiles.size} images")
+			val concurrency = sharedPreferencesHandler.bulkThumbnailGenerationConcurrency()
+			Timber.d("Starting bulk thumbnail generation for ${cloudFiles.size} images with $concurrency concurrent workers")
 
-			// Generate thumbnails for all images in the folder
-			cloudFiles.forEach { cryptoFile ->
-				try {
-					val cacheKey = generateCacheKey(cryptoFile)
-					val cachedThumbnail = diskCache[cacheKey]
-					
-					if (cachedThumbnail == null) {
-						// Generate thumbnail for this file
-						val thumbnailReader = PipedInputStream()
-						val thumbnailWriter = PipedOutputStream(thumbnailReader)
-
-						val downloadFuture = startDownloadThread(cryptoFile, thumbnailWriter)
-						val thumbnailFuture = startThumbnailGeneratorThread(cryptoFile, diskCache, cacheKey, thumbnailReader)
-
+			// Generate thumbnails for all images in the folder, up to `concurrency` at a time. progressAware.onProgress()
+			// is called from whichever worker thread finishes a file, so it must be serialized: the underlying
+			// Rx subscriber this eventually reaches does not tolerate concurrent onNext calls.
+			//
+			// All files are submitted up front - the executor queues whatever doesn't fit in `concurrency` workers
+			// right away, it doesn't block here. Cancellation is therefore checked inside each worker
+			// (generateThumbnailForBulkOperation), not in this submission loop: a file that hasn't started its
+			// worker yet when cancel() is called will see cancelToken.cancelled and skip its work, while a file
+			// already mid-download/generation runs to completion rather than being hard-interrupted.
+			val bulkGenerationExecutor = Executors.newFixedThreadPool(concurrency)
+			try {
+				val futures = cloudFiles.map { cryptoFile ->
+					bulkGenerationExecutor.submit {
 						try {
-							downloadFuture.get()
-							thumbnailFuture.get()
-						} finally {
-							closeQuietly(thumbnailReader)
+							generateThumbnailForBulkOperation(cryptoFile, diskCache, cancelToken, progressAware)
+						} catch (e: Exception) {
+							Timber.w(e, "Failed to generate thumbnail for ${cryptoFile.name}")
+							// Continue with the next file
 						}
-
-						// Update the model with the new thumbnail
-						cryptoFile.thumbnail = diskCache[cacheKey]
-					} else {
-						// Thumbnail already exists
-						cryptoFile.thumbnail = cachedThumbnail
 					}
-
-					// Report progress
-					val state = object : BulkThumbnailGenerationState {
-						override fun file() = cryptoFile
-					}
-					progressAware.onProgress(Progress.progress<BulkThumbnailGenerationState>(state).thatIsCompleted())
-
-				} catch (e: Exception) {
-					Timber.w(e, "Failed to generate thumbnail for ${cryptoFile.name}")
-					// Continue with the next file
 				}
+				futures.forEach { it.get() }
+			} finally {
+				bulkGenerationExecutor.shutdown()
 			}
 
 			Timber.d("Completed bulk thumbnail generation")
@@ -795,6 +785,50 @@ abstract class CryptoImplDecorator(
 			throw e
 		} catch (e: Exception) {
 			throw FatalBackendException(e)
+		}
+	}
+
+	private fun generateThumbnailForBulkOperation(cryptoFile: CryptoFile, diskCache: DiskLruCache, cancelToken: BulkThumbnailGenerationCancelToken, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
+		if (cancelToken.cancelled) {
+			Timber.d("generateAllThumbnails: skipping ${cryptoFile.name}, generation was cancelled")
+			return
+		}
+
+		val state = object : BulkThumbnailGenerationState {
+			override fun file() = cryptoFile
+		}
+
+		synchronized(bulkThumbnailGenerationProgressLock) {
+			progressAware.onProgress(Progress.started(state))
+		}
+
+		val cacheKey = generateCacheKey(cryptoFile)
+		val cachedThumbnail = diskCache[cacheKey]
+
+		if (cachedThumbnail == null) {
+			// Generate thumbnail for this file
+			val thumbnailReader = PipedInputStream()
+			val thumbnailWriter = PipedOutputStream(thumbnailReader)
+
+			val downloadFuture = startDownloadThread(cryptoFile, thumbnailWriter)
+			val thumbnailFuture = startThumbnailGeneratorThread(cryptoFile, diskCache, cacheKey, thumbnailReader)
+
+			try {
+				downloadFuture.get()
+				thumbnailFuture.get()
+			} finally {
+				closeQuietly(thumbnailReader)
+			}
+
+			// Update the model with the new thumbnail
+			cryptoFile.thumbnail = diskCache[cacheKey]
+		} else {
+			// Thumbnail already exists
+			cryptoFile.thumbnail = cachedThumbnail
+		}
+
+		synchronized(bulkThumbnailGenerationProgressLock) {
+			progressAware.onProgress(Progress.progress<BulkThumbnailGenerationState>(state).thatIsCompleted())
 		}
 	}
 

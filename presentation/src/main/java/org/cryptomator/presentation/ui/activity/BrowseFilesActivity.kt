@@ -244,7 +244,11 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 			true
 		}
 		R.id.action_generate_all_thumbnails -> {
-			showGenerateAllThumbnailsDialog()
+			if (browseFilesPresenter.isBulkThumbnailGenerationInProgress()) {
+				browseFilesPresenter.onStopThumbnailGenerationRequested()
+			} else {
+				showGenerateAllThumbnailsDialog()
+			}
 			true
 		}
 		android.R.id.home -> {
@@ -273,6 +277,11 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 		if (generateAllThumbnailsItem != null) {
 			val thumbnailOption = browseFilesPresenter.getThumbnailsOption()
 			generateAllThumbnailsItem.isVisible = (thumbnailOption == ThumbnailsOption.PER_FILE || thumbnailOption == ThumbnailsOption.PER_FOLDER)
+			generateAllThumbnailsItem.title = if (browseFilesPresenter.isBulkThumbnailGenerationInProgress()) {
+				getString(R.string.screen_file_browser_action_stop_thumbnail_generation)
+			} else {
+				getString(R.string.screen_file_browser_action_generate_all_thumbnails)
+			}
 		}
 
 		val searchView = menu.findItem(R.id.action_search).actionView as SearchView

@@ -7,6 +7,9 @@ import android.view.View
 import android.view.View.GONE
 import android.view.View.VISIBLE
 import android.view.ViewGroup
+import android.view.animation.Animation
+import android.view.animation.LinearInterpolator
+import android.view.animation.RotateAnimation
 import android.widget.RelativeLayout
 import com.simplecityapps.recyclerview_fastscroll.views.FastScrollRecyclerView
 import org.cryptomator.domain.CloudNode
@@ -20,6 +23,7 @@ import org.cryptomator.presentation.model.CloudFolderModel
 import org.cryptomator.presentation.model.CloudNodeModel
 import org.cryptomator.presentation.model.ProgressModel
 import org.cryptomator.presentation.model.ProgressStateModel.Companion.COMPLETED
+import org.cryptomator.presentation.model.ThumbnailGenerationStatus
 import org.cryptomator.presentation.model.comparator.CloudNodeModelDateNewestFirstComparator
 import org.cryptomator.presentation.model.comparator.CloudNodeModelDateOldestFirstComparator
 import org.cryptomator.presentation.model.comparator.CloudNodeModelNameAZComparator
@@ -49,6 +53,12 @@ constructor(
 	private var chooseCloudNodeSettings: ChooseCloudNodeSettings? = null
 	private var navigationMode: ChooseCloudNodeSettings.NavigationMode? = null
 	private var viewMode: FileViewMode = FileViewMode.LIST
+	private var bulkThumbnailGenerationActive: Boolean = false
+
+	fun setBulkThumbnailGenerationActive(active: Boolean) {
+		bulkThumbnailGenerationActive = active
+		notifyDataSetChanged()
+	}
 
 	private val isInSelectionMode: Boolean
 		get() = chooseCloudNodeSettings != null
@@ -145,11 +155,61 @@ constructor(
 
 		private fun internalBind(node: CloudNodeModel<*>) {
 			bindNodeImage(node)
+			bindThumbnailGenerationStatus(node)
 			bindSettings(node)
 			bindLongNodeClick(node)
 			bindFileOrFolder(node)
 			// Apply view mode layout after all binding is complete
 			applyViewModeLayout()
+		}
+
+		private fun bindThumbnailGenerationStatus(node: CloudNodeModel<*>) {
+			val badge = binding.thumbnailGenerationStatusBadge
+
+			val status = if (node is CloudFileModel && isImageMediaType(node.name)) {
+				when {
+					node.thumbnailGenerationStatus == ThumbnailGenerationStatus.GENERATING -> ThumbnailGenerationStatus.GENERATING
+					bulkThumbnailGenerationActive && node.thumbnail == null -> ThumbnailGenerationStatus.QUEUED
+					else -> null
+				}
+			} else {
+				null
+			}
+
+			when (status) {
+				ThumbnailGenerationStatus.GENERATING -> {
+					badge.visibility = VISIBLE
+					badge.setImageResource(R.drawable.ic_thumbnail_generating)
+					startRotationAnimation(badge)
+				}
+				ThumbnailGenerationStatus.QUEUED -> {
+					stopRotationAnimation(badge)
+					badge.visibility = VISIBLE
+					badge.setImageResource(R.drawable.ic_thumbnail_queued)
+				}
+				null -> {
+					stopRotationAnimation(badge)
+					badge.visibility = GONE
+				}
+			}
+		}
+
+		private fun startRotationAnimation(view: View) {
+			if (view.animation == null) {
+				val rotate = RotateAnimation(
+					0f, 360f, //
+					Animation.RELATIVE_TO_SELF, 0.5f, //
+					Animation.RELATIVE_TO_SELF, 0.5f
+				)
+				rotate.duration = 800
+				rotate.repeatCount = Animation.INFINITE
+				rotate.interpolator = LinearInterpolator()
+				view.startAnimation(rotate)
+			}
+		}
+
+		private fun stopRotationAnimation(view: View) {
+			view.clearAnimation()
 		}
 
 		private fun bindNodeImage(node: CloudNodeModel<*>) {

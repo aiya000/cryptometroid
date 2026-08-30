@@ -12,6 +12,7 @@ import org.cryptomator.domain.exception.BackendException
 import org.cryptomator.domain.exception.authentication.AuthenticationException
 import org.cryptomator.domain.repository.CloudContentRepository
 import org.cryptomator.domain.usecases.ProgressAware
+import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationCancelToken
 import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationState
 import org.cryptomator.domain.usecases.cloud.DataSource
 import org.cryptomator.domain.usecases.cloud.DownloadState
@@ -181,7 +182,7 @@ class DispatchingCloudContentRepository @Inject constructor(
 	}
 
 	@Throws(BackendException::class)
-	override fun generateAllThumbnails(folder: CloudFolder, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
+	override fun generateAllThumbnails(folder: CloudFolder, cancelToken: BulkThumbnailGenerationCancelToken, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
 		timber.log.Timber.d("DispatchingCloudContentRepository.generateAllThumbnails called")
 		try {
 			timber.log.Timber.d("Skipping network connection check for generateAllThumbnails...")
@@ -190,7 +191,7 @@ class DispatchingCloudContentRepository @Inject constructor(
 			timber.log.Timber.d("Getting delegate...")
 			val delegate = delegateFor(folder)
 			timber.log.Timber.d("DispatchingCloudContentRepository.generateAllThumbnails delegating to ${delegate.javaClass.simpleName}")
-			delegate.generateAllThumbnails(folder, progressAware)
+			delegate.generateAllThumbnails(folder, cancelToken, progressAware)
 			timber.log.Timber.d("DispatchingCloudContentRepository.generateAllThumbnails delegation completed")
 		} catch (e: AuthenticationException) {
 			timber.log.Timber.e(e, "AuthenticationException in generateAllThumbnails")

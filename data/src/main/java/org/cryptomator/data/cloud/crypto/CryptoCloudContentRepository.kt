@@ -11,6 +11,7 @@ import org.cryptomator.domain.exception.CloudNodeAlreadyExistsException
 import org.cryptomator.domain.exception.FatalBackendException
 import org.cryptomator.domain.repository.CloudContentRepository
 import org.cryptomator.domain.usecases.ProgressAware
+import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationCancelToken
 import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationState
 import org.cryptomator.domain.usecases.cloud.DataSource
 import org.cryptomator.domain.usecases.cloud.DownloadState
@@ -103,9 +104,9 @@ internal class CryptoCloudContentRepository(context: Context, cloudContentReposi
 	}
 
 	@Throws(BackendException::class)
-	override fun generateAllThumbnails(folder: CryptoFolder, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
+	override fun generateAllThumbnails(folder: CryptoFolder, cancelToken: BulkThumbnailGenerationCancelToken, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
 		timber.log.Timber.d("CryptoCloudContentRepository.generateAllThumbnails called for folder: ${folder.name}")
-		cryptoImpl.generateAllThumbnails(folder, progressAware)
+		cryptoImpl.generateAllThumbnails(folder, cancelToken, progressAware)
 		timber.log.Timber.d("CryptoCloudContentRepository.generateAllThumbnails completed")
 	}
 

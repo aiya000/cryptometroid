@@ -12,6 +12,17 @@
 		android:layout_centerVertical="true"
 		android:layout_marginStart="16dp" />
 
+	<ImageView
+		android:id="@+id/thumbnail_generation_status_badge"
+		android:layout_width="18dp"
+		android:layout_height="18dp"
+		android:layout_alignStart="@id/cloud_node_image"
+		android:layout_alignBottom="@id/cloud_node_image"
+		android:padding="3dp"
+		android:background="@drawable/thumbnail_generation_status_badge_background"
+		android:visibility="gone"
+		android:contentDescription="@null" />
+
 	<include
 		android:id="@+id/ll_cloud_folder_content"
 		layout="@layout/view_cloud_folder_content"

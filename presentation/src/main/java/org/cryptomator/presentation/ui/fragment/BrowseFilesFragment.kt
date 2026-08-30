@@ -377,6 +377,7 @@ class BrowseFilesFragment : BaseFragment<FragmentBrowseFilesBinding>(FragmentBro
 	fun showBulkThumbnailGenerationProgress(show: Boolean) {
 		binding.swipeRefreshLayout.isRefreshing = show
 		binding.swipeRefreshLayout.isEnabled = !show
+		cloudNodesAdapter.setBulkThumbnailGenerationActive(show)
 	}
 
 	companion object {

@@ -27,6 +27,7 @@ import org.cryptomator.domain.usecases.GetDecryptedCloudForVaultUseCase
 import org.cryptomator.domain.usecases.PrepareDownloadFilesUseCase
 import org.cryptomator.domain.usecases.ResultRenamed
 import org.cryptomator.domain.usecases.cloud.AssociateThumbnailsUseCase
+import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationCancelToken
 import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationState
 import org.cryptomator.domain.usecases.cloud.CreateFolderUseCase
 import org.cryptomator.domain.usecases.cloud.DeleteNodesUseCase
@@ -62,6 +63,7 @@ import org.cryptomator.presentation.model.CloudNodeModel
 import org.cryptomator.presentation.model.ImagePreviewFilesStore
 import org.cryptomator.presentation.model.ProgressModel
 import org.cryptomator.presentation.model.ProgressStateModel
+import org.cryptomator.presentation.model.ThumbnailGenerationStatus
 import org.cryptomator.presentation.model.mappers.CloudFileModelMapper
 import org.cryptomator.presentation.model.mappers.CloudFolderModelMapper
 import org.cryptomator.presentation.model.mappers.CloudNodeModelMapper
@@ -1353,24 +1355,44 @@ class BrowseFilesPresenter @Inject constructor( //
 		return sharedPreferencesHandler.generateThumbnails()
 	}
 
+	private var bulkThumbnailGenerationCancelToken: BulkThumbnailGenerationCancelToken? = null
+
+	fun isBulkThumbnailGenerationInProgress(): Boolean {
+		return bulkThumbnailGenerationCancelToken != null
+	}
+
+	fun onStopThumbnailGenerationRequested() {
+		bulkThumbnailGenerationCancelToken?.cancel()
+	}
+
 	fun onGenerateAllThumbnailsRequested(folder: CloudFolderModel) {
+		val cancelToken = BulkThumbnailGenerationCancelToken()
+		bulkThumbnailGenerationCancelToken = cancelToken
+		invalidateOptionsMenu()
+
 		view?.showBulkThumbnailGenerationProgress(true)
 		generateAllThumbnailsUseCase
 			.withFolder(cloudFolderModelMapper.fromModel(folder))
+			.andCancelToken(cancelToken)
 			.run(object : DefaultProgressAwareResultHandler<Void, BulkThumbnailGenerationState>() {
 				override fun onProgress(progress: Progress<BulkThumbnailGenerationState>) {
 					val state = progress.state()
 					state?.let { thumbnailState ->
 						val file = cloudFileModelMapper.toModel(thumbnailState.file())
+						file.thumbnailGenerationStatus = if (progress.isCompleteAndHasState()) null else ThumbnailGenerationStatus.GENERATING
 						view?.addOrUpdateCloudNode(file)
 					}
 				}
 
 				override fun onFinished() {
+					bulkThumbnailGenerationCancelToken = null
+					invalidateOptionsMenu()
 					view?.showBulkThumbnailGenerationProgress(false)
 				}
 
 				override fun onError(e: Throwable) {
+					bulkThumbnailGenerationCancelToken = null
+					invalidateOptionsMenu()
 					view?.showBulkThumbnailGenerationProgress(false)
 					super.onError(e)
 				}

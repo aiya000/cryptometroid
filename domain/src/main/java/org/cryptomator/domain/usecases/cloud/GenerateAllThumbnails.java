@@ -12,20 +12,23 @@ public class GenerateAllThumbnails {
 
 	private final CloudContentRepository cloudContentRepository;
 	private final CloudFolder folder;
+	private final BulkThumbnailGenerationCancelToken cancelToken;
 
 	public GenerateAllThumbnails(CloudContentRepository cloudContentRepository, //
-			@Parameter CloudFolder folder) {
+			@Parameter CloudFolder folder, //
+			@Parameter BulkThumbnailGenerationCancelToken cancelToken) {
 		this.cloudContentRepository = cloudContentRepository;
 		this.folder = folder;
+		this.cancelToken = cancelToken;
 	}
 
 	public void execute(ProgressAware<BulkThumbnailGenerationState> progressAware) throws BackendException {
 		timber.log.Timber.d("GenerateAllThumbnails.execute called for folder: " + folder.getName());
 		timber.log.Timber.d("CloudContentRepository type: " + cloudContentRepository.getClass().getName());
-		
+
 		// Simply call the interface method - let the implementation handle it
 		timber.log.Timber.d("Calling cloudContentRepository.generateAllThumbnails...");
-		cloudContentRepository.generateAllThumbnails(folder, progressAware);
+		cloudContentRepository.generateAllThumbnails(folder, cancelToken, progressAware);
 		timber.log.Timber.d("GenerateAllThumbnails.execute completed");
 	}
 }

@@ -6,6 +6,7 @@ import org.cryptomator.domain.CloudFolder
 import org.cryptomator.domain.CloudNode
 import org.cryptomator.domain.exception.BackendException
 import org.cryptomator.domain.usecases.ProgressAware
+import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationCancelToken
 import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationState
 import org.cryptomator.domain.usecases.cloud.DataSource
 import org.cryptomator.domain.usecases.cloud.DownloadState
@@ -102,7 +103,7 @@ interface CloudContentRepository<CloudType : Cloud, NodeType : CloudNode, DirTyp
 	}
 
 	@Throws(BackendException::class)
-	fun generateAllThumbnails(folder: DirType, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
+	fun generateAllThumbnails(folder: DirType, cancelToken: BulkThumbnailGenerationCancelToken, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
 		// default implementation - does nothing
 	}
 
