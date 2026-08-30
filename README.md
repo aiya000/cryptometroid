@@ -1,4 +1,4 @@
-![cryptomator-android](cryptomator-android.png)
+![cryptometroid](cryptometroid.png)
 
 [![Mastodon](https://img.shields.io/mastodon/follow/176112?domain=mastodon.online&style=flat)](https://mastodon.online/@cryptomator)
 [![Community](https://img.shields.io/badge/help-Community-orange.svg)](https://community.cryptomator.org)
@@ -44,8 +44,8 @@ Use the Docker image to verify the build of the 'lite' flavor:
 
 1. Clone this repository
 2. Checkout the tag you want to build, e.g. 1.8.0
-3. Build the image using `docker build -t cryptomator-android .` in the `buildsystem/` directory
-4. Build Cryptomator using `docker run --rm -u $(id -u):$(id -g) -v $(pwd):/project -w /project cryptomator-android ./gradlew clean assembleLiteRelease` in the root of this folder
+3. Build the image using `docker build -t cryptometroid .` in the `buildsystem/` directory
+4. Build Cryptomator using `docker run --rm -u $(id -u):$(id -g) -v $(pwd):/project -w /project cryptometroid ./gradlew clean assembleLiteRelease` in the root of this folder
 5. Compare the build APK with the release version, using e.g. `apksigcopier compare --unsigned apk1 apk2`
 
 ## Verify downloaded APK
