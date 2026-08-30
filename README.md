@@ -4,8 +4,12 @@
 
 <img src="cryptometroid.png" alt="CryptoMetroid" width="400">
 
+An independent fork of Cryptomator for Android that installs alongside the official app (different application ID), extended with thumbnail generation, a grid view mode, and more.
+
 </div>
 
+- - - - -
+- - - - -
 - - - - -
 
 ![cryptomator-android](cryptomator-android.png)
