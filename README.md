@@ -1,4 +1,14 @@
-![cryptometroid](cryptometroid.png)
+<div align="center">
+
+# CryptoMetroid
+
+<img src="cryptometroid.png" alt="CryptoMetroid" width="400">
+
+</div>
+
+- - - - -
+
+![cryptomator-android](cryptomator-android.png)
 
 [![Mastodon](https://img.shields.io/mastodon/follow/176112?domain=mastodon.online&style=flat)](https://mastodon.online/@cryptomator)
 [![Community](https://img.shields.io/badge/help-Community-orange.svg)](https://community.cryptomator.org)
