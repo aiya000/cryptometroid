@@ -4,8 +4,8 @@
 # To build it
 #  1. Clone this repository
 #  2. Checkout the tag you want to build, e.g. 1.8.0
-#  3. Build the image using `docker build -t cryptomator-android .` in this directory
-#  4. Build Cryptomator using `docker run --rm -u $(id -u):$(id -g) -v $(pwd):/project -w /project cryptomator-android ./gradlew clean assembleLiteRelease` in the root of this project
+#  3. Build the image using `docker build -t cryptometroid .` in this directory
+#  4. Build Cryptomator using `docker run --rm -u $(id -u):$(id -g) -v $(pwd):/project -w /project cryptometroid ./gradlew clean assembleLiteRelease` in the root of this project
 
 FROM debian:bullseye
 
