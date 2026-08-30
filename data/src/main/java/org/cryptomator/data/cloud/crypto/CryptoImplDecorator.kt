@@ -25,6 +25,7 @@ import org.cryptomator.domain.repository.CloudContentRepository
 import org.cryptomator.domain.usecases.DownloadFileReplacingProgressAware
 import org.cryptomator.domain.usecases.ProgressAware
 import org.cryptomator.domain.usecases.UploadFileReplacingProgressAware
+import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationState
 import org.cryptomator.domain.usecases.cloud.DataSource
 import org.cryptomator.domain.usecases.cloud.DownloadState
 import org.cryptomator.domain.usecases.cloud.FileBasedDataSource.Companion.from
@@ -576,7 +577,13 @@ abstract class CryptoImplDecorator(
 	}
 
 	private fun isGenerateThumbnailsEnabled(): Boolean {
-		return sharedPreferencesHandler.useLruCache() && sharedPreferencesHandler.generateThumbnails() != ThumbnailsOption.NEVER
+		val useLruCache = sharedPreferencesHandler.useLruCache()
+		val thumbnailsOption = sharedPreferencesHandler.generateThumbnails()
+		val isEnabled = useLruCache && thumbnailsOption != ThumbnailsOption.NEVER
+		
+		Timber.d("isGenerateThumbnailsEnabled: useLruCache=$useLruCache, thumbnailsOption=$thumbnailsOption, isEnabled=$isEnabled")
+		
+		return isEnabled
 	}
 
 	private fun storeThumbnail(cache: DiskLruCache?, cacheKey: String, thumbnailBitmap: Bitmap) {
@@ -716,6 +723,93 @@ abstract class CryptoImplDecorator(
 			} ?: throw IllegalStateException("InputStream shouldn't be null")
 		} catch (e: IOException) {
 			throw FatalBackendException(e)
+		}
+	}
+
+	@Throws(BackendException::class)
+	fun generateAllThumbnails(cryptoFolder: CryptoFolder, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
+		Timber.d("generateAllThumbnails called for folder: ${cryptoFolder.name}")
+		
+		if (!isGenerateThumbnailsEnabled()) {
+			Timber.d("generateAllThumbnails: thumbnails generation is disabled, returning early")
+			return
+		}
+
+		try {
+			val cloudFiles = list(cryptoFolder)
+				.filterIsInstance<CryptoFile>()
+				.filter { cryptoFile -> isImageMediaType(cryptoFile.name) }
+
+			if (cloudFiles.isEmpty()) {
+				return
+			}
+
+			val cloudType = cloudFiles.firstOrNull()?.cloudFile?.cloud?.type() ?: return
+			val diskCache = getLruCacheFor(cloudType) ?: return
+
+			Timber.d("Starting bulk thumbnail generation for ${cloudFiles.size} images")
+
+			// Generate thumbnails for all images in the folder
+			cloudFiles.forEach { cryptoFile ->
+				try {
+					val cacheKey = generateCacheKey(cryptoFile)
+					val cachedThumbnail = diskCache[cacheKey]
+					
+					if (cachedThumbnail == null) {
+						// Generate thumbnail for this file
+						val thumbnailReader = PipedInputStream()
+						val thumbnailWriter = PipedOutputStream(thumbnailReader)
+
+						val downloadFuture = startDownloadThread(cryptoFile, thumbnailWriter)
+						val thumbnailFuture = startThumbnailGeneratorThread(cryptoFile, diskCache, cacheKey, thumbnailReader)
+
+						try {
+							downloadFuture.get()
+							thumbnailFuture.get()
+						} finally {
+							closeQuietly(thumbnailReader)
+						}
+
+						// Update the model with the new thumbnail
+						cryptoFile.thumbnail = diskCache[cacheKey]
+					} else {
+						// Thumbnail already exists
+						cryptoFile.thumbnail = cachedThumbnail
+					}
+
+					// Report progress
+					val state = object : BulkThumbnailGenerationState {
+						override fun file() = cryptoFile
+					}
+					progressAware.onProgress(Progress.progress<BulkThumbnailGenerationState>(state).thatIsCompleted())
+
+				} catch (e: Exception) {
+					Timber.w(e, "Failed to generate thumbnail for ${cryptoFile.name}")
+					// Continue with the next file
+				}
+			}
+
+			Timber.d("Completed bulk thumbnail generation")
+
+		} catch (e: BackendException) {
+			throw e
+		} catch (e: Exception) {
+			throw FatalBackendException(e)
+		}
+	}
+
+	private fun startDownloadThread(cryptoFile: CryptoFile, thumbnailWriter: PipedOutputStream): Future<*> {
+		return thumbnailExecutorService.submit {
+			try {
+				ByteArrayOutputStream().use { byteArrayOutputStream ->
+					read(cryptoFile, byteArrayOutputStream, ProgressAware.NO_OP_PROGRESS_AWARE_DOWNLOAD)
+					thumbnailWriter.write(byteArrayOutputStream.toByteArray())
+				}
+			} catch (e: Exception) {
+				Timber.w(e, "Failed to download file for thumbnail generation: ${cryptoFile.name}")
+			} finally {
+				closeQuietly(thumbnailWriter)
+			}
 		}
 	}
 }

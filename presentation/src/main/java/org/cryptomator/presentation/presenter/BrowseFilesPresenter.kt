@@ -27,11 +27,13 @@ import org.cryptomator.domain.usecases.GetDecryptedCloudForVaultUseCase
 import org.cryptomator.domain.usecases.PrepareDownloadFilesUseCase
 import org.cryptomator.domain.usecases.ResultRenamed
 import org.cryptomator.domain.usecases.cloud.AssociateThumbnailsUseCase
+import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationState
 import org.cryptomator.domain.usecases.cloud.CreateFolderUseCase
 import org.cryptomator.domain.usecases.cloud.DeleteNodesUseCase
 import org.cryptomator.domain.usecases.cloud.DownloadFilesUseCase
 import org.cryptomator.domain.usecases.cloud.DownloadState
 import org.cryptomator.domain.usecases.cloud.FileTransferState
+import org.cryptomator.domain.usecases.cloud.GenerateAllThumbnailsUseCase
 import org.cryptomator.domain.usecases.cloud.GetCloudListRecursiveUseCase
 import org.cryptomator.domain.usecases.cloud.GetCloudListUseCase
 import org.cryptomator.domain.usecases.cloud.MoveFilesUseCase
@@ -129,6 +131,7 @@ class BrowseFilesPresenter @Inject constructor( //
 	private val shareFileHelper: ShareFileHelper,  //
 	private val downloadFileUtil: DownloadFileUtil,  //
 	private val sharedPreferencesHandler: SharedPreferencesHandler,  //
+	private val generateAllThumbnailsUseCase: GenerateAllThumbnailsUseCase,  //
 	exceptionMappings: ExceptionHandlers
 ) : Presenter<BrowseFilesView>(exceptionMappings) {
 
@@ -1344,6 +1347,34 @@ class BrowseFilesPresenter @Inject constructor( //
 
 	fun invalidateOptionsMenu() {
 		activity().invalidateOptionsMenu()
+	}
+
+	fun getThumbnailsOption(): ThumbnailsOption {
+		return sharedPreferencesHandler.generateThumbnails()
+	}
+
+	fun onGenerateAllThumbnailsRequested(folder: CloudFolderModel) {
+		view?.showBulkThumbnailGenerationProgress(true)
+		generateAllThumbnailsUseCase
+			.withFolder(cloudFolderModelMapper.fromModel(folder))
+			.run(object : DefaultProgressAwareResultHandler<Void, BulkThumbnailGenerationState>() {
+				override fun onProgress(progress: Progress<BulkThumbnailGenerationState>) {
+					val state = progress.state()
+					state?.let { thumbnailState ->
+						val file = cloudFileModelMapper.toModel(thumbnailState.file())
+						view?.addOrUpdateCloudNode(file)
+					}
+				}
+
+				override fun onFinished() {
+					view?.showBulkThumbnailGenerationProgress(false)
+				}
+
+				override fun onError(e: Throwable) {
+					view?.showBulkThumbnailGenerationProgress(false)
+					super.onError(e)
+				}
+			})
 	}
 
 	interface ExportOperation : Serializable {

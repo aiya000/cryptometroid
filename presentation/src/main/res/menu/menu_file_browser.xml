@@ -55,4 +55,9 @@
 		android:id="@+id/action_refresh"
 		android:title="@string/screen_file_browser_refresh_items"
 		app:showAsAction="never" />
+
+	<item
+		android:id="@+id/action_generate_all_thumbnails"
+		android:title="@string/screen_file_browser_action_generate_all_thumbnails"
+		app:showAsAction="never" />
 </menu>

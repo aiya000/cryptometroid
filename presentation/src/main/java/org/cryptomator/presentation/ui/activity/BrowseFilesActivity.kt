@@ -45,12 +45,14 @@ import org.cryptomator.presentation.ui.dialog.CreateFolderDialog
 import org.cryptomator.presentation.ui.dialog.ExportCloudFilesDialog
 import org.cryptomator.presentation.ui.dialog.FileNameDialog
 import org.cryptomator.presentation.ui.dialog.FileTypeNotSupportedDialog
+import org.cryptomator.presentation.ui.dialog.GenerateAllThumbnailsDialog
 import org.cryptomator.presentation.ui.dialog.NoDirFileOrEmptyDialog
 import org.cryptomator.presentation.ui.dialog.ReplaceDialog
 import org.cryptomator.presentation.ui.dialog.SymLinkDialog
 import org.cryptomator.presentation.ui.dialog.UploadCloudFileDialog
 import org.cryptomator.presentation.ui.fragment.BrowseFilesFragment
 import org.cryptomator.util.FileViewMode
+import org.cryptomator.util.ThumbnailsOption
 import java.util.regex.Pattern
 import javax.inject.Inject
 
@@ -65,6 +67,7 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 	ExportCloudFilesDialog.Callback,
 	SymLinkDialog.CallBack,
 	NoDirFileOrEmptyDialog.CallBack,
+	GenerateAllThumbnailsDialog.Callback,
 	SearchView.OnQueryTextListener,
 	SearchView.OnCloseListener {
 
@@ -240,6 +243,10 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 			toggleViewMode()
 			true
 		}
+		R.id.action_generate_all_thumbnails -> {
+			showGenerateAllThumbnailsDialog()
+			true
+		}
 		android.R.id.home -> {
 			// Respond to the action bar's Up/Home button
 			if (isNavigationMode(SELECT_ITEMS)) {
@@ -259,6 +266,13 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 			menu.findItem(R.id.action_move_items).isEnabled = enableGeneralSelectionActions
 			menu.findItem(R.id.action_export_items).isEnabled = enableGeneralSelectionActions
 			menu.findItem(R.id.action_share_items).isEnabled = enableGeneralSelectionActions
+		}
+
+		// Show "Generate All Thumbnails" menu item only when thumbnail generation is enabled
+		val generateAllThumbnailsItem = menu.findItem(R.id.action_generate_all_thumbnails)
+		if (generateAllThumbnailsItem != null) {
+			val thumbnailOption = browseFilesPresenter.getThumbnailsOption()
+			generateAllThumbnailsItem.isVisible = (thumbnailOption == ThumbnailsOption.PER_FILE || thumbnailOption == ThumbnailsOption.PER_FOLDER)
 		}
 
 		val searchView = menu.findItem(R.id.action_search).actionView as SearchView
@@ -473,6 +487,10 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 		showDialog(CreateFolderDialog())
 	}
 
+	private fun showGenerateAllThumbnailsDialog() {
+		showDialog(GenerateAllThumbnailsDialog.newInstance())
+	}
+
 	override fun onUploadFilesClicked(folder: CloudFolderModel) {
 		browseFilesPresenter.onUploadFilesClicked(folder)
 	}
@@ -581,6 +599,10 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 		}
 	}
 
+	override fun onGenerateAllThumbnailsConfirmed() {
+		browseFilesPresenter.onGenerateAllThumbnailsRequested(browseFilesFragment().folder)
+	}
+
 	override fun onUploadCanceled() {
 		browseFilesPresenter.onUploadCanceled()
 	}
@@ -652,5 +674,9 @@ class BrowseFilesActivity : BaseActivity<ActivityLayoutBinding>(ActivityLayoutBi
 				viewModeItem.setTitle(R.string.action_view_mode_grid)
 			}
 		}
+	}
+
+	override fun showBulkThumbnailGenerationProgress(show: Boolean) {
+		browseFilesFragment().showBulkThumbnailGenerationProgress(show)
 	}
 }

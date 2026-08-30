@@ -38,4 +38,5 @@ interface BrowseFilesView : View {
 	fun updateActiveFolderDueToAuthenticationProblem(folder: CloudFolderModel)
 	fun replaceImageWithDownloadIcon(nodes: CloudNodeModel<*>)
 	fun replaceImagesWithDownloadIcon(nodes: List<CloudNodeModel<*>>)
+	fun showBulkThumbnailGenerationProgress(show: Boolean)
 }

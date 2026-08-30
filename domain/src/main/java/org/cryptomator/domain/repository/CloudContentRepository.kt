@@ -6,6 +6,7 @@ import org.cryptomator.domain.CloudFolder
 import org.cryptomator.domain.CloudNode
 import org.cryptomator.domain.exception.BackendException
 import org.cryptomator.domain.usecases.ProgressAware
+import org.cryptomator.domain.usecases.cloud.BulkThumbnailGenerationState
 import org.cryptomator.domain.usecases.cloud.DataSource
 import org.cryptomator.domain.usecases.cloud.DownloadState
 import org.cryptomator.domain.usecases.cloud.FileTransferState
@@ -98,6 +99,11 @@ interface CloudContentRepository<CloudType : Cloud, NodeType : CloudNode, DirTyp
 	@Throws(BackendException::class)
 	fun associateThumbnails(list: List<NodeType>, progressAware: ProgressAware<FileTransferState>) {
 		// default implementation
+	}
+
+	@Throws(BackendException::class)
+	fun generateAllThumbnails(folder: DirType, progressAware: ProgressAware<BulkThumbnailGenerationState>) {
+		// default implementation - does nothing
 	}
 
 	@Throws(BackendException::class)

@@ -374,6 +374,11 @@ class BrowseFilesFragment : BaseFragment<FragmentBrowseFilesBinding>(FragmentBro
 		}
 	}
 
+	fun showBulkThumbnailGenerationProgress(show: Boolean) {
+		binding.swipeRefreshLayout.isRefreshing = show
+		binding.swipeRefreshLayout.isEnabled = !show
+	}
+
 	companion object {
 
 		private const val ARG_FOLDER = "folder"

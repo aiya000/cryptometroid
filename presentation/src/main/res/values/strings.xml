@@ -695,5 +695,10 @@
 	<string name="update_interval_1d">Once a day</string>
 	<string name="update_interval_never" translatable="false">@string/lock_timeout_never</string>
 	<string name="dialog_thumbnail_generation_title">Thumbnail generation</string>
+	<string name="screen_file_browser_action_generate_all_thumbnails">Generate All Thumbnails</string>
+	<string name="dialog_generate_all_thumbnails_title">Generate All Thumbnails</string>
+	<string name="dialog_generate_all_thumbnails_message">This will generate thumbnails for all images in the current folder. This may take some time.</string>
+	<string name="dialog_generate_all_thumbnails_positive_button">Generate</string>
+	<string name="dialog_generate_all_thumbnails_negative_button">Cancel</string>
 
 </resources>
