@@ -44,11 +44,14 @@ Cryptomator for Android is currently available in the following  distribution ch
 ./gradlew assembleApkstoreDebug
 ```
 
-Before connecting to Dropbox, OneDrive or pCloud you have to provide valid API keys using environment variables:
+Before connecting to Dropbox, OneDrive or pCloud you have to provide valid API keys. Copy [local.properties.example](local.properties.example) to `local.properties` in the repository root, next to `gradlew` — the same file Android Studio keeps the SDK path in — and fill in the keys you need. `local.properties` is ignored by git, so nothing you put there is committed.
+
 For build type
 
 * **release**: `DROPBOX_API_KEY`, `ONEDRIVE_API_KEY` and  `ONEDRIVE_API_REDIRCT_URI` or `PCLOUD_CLIENT_ID`
 * **debug**: `DROPBOX_API_KEY_DEBUG`, `ONEDRIVE_API_KEY_DEBUG` and `ONEDRIVE_API_REDIRCT_URI_DEBUG` or `PCLOUD_CLIENT_ID_DEBUG`
+
+Every key is optional: a build made without one still succeeds, only that provider fails to authenticate at runtime. An environment variable of the same name wins over the value in `local.properties`, which is how CI passes the keys in.
 
 Before connecting to Google Drive you have to create a new project in [Google Cloud Platform](https://console.cloud.google.com) with Google Drive API, credentials including Google Drive scopes (read, write, delete,..) and the fingerprint of the key you use to build the app.
 

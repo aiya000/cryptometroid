@@ -71,6 +71,7 @@ whether to switch to the rebrand branch rather than proceeding.
 ## Notes
 
 - Cloud provider API keys (`DROPBOX_API_KEY_DEBUG`, `ONEDRIVE_API_KEY_DEBUG`,
-  `PCLOUD_CLIENT_ID_DEBUG`) are read from environment variables at build time. Without them
-  the build still succeeds, but the corresponding cloud integrations will not authenticate
-  at runtime
+  `PCLOUD_CLIENT_ID_DEBUG`) are read from `local.properties` in the repository root, or from
+  an environment variable of the same name, which takes precedence. `local.properties.example`
+  lists every key. Without them the build still succeeds, but the corresponding cloud
+  integrations will not authenticate at runtime

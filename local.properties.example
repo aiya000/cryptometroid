@@ -1,0 +1,27 @@
+# Copy this file to `local.properties` in the repository root (next to `gradlew`).
+# `local.properties` is listed in `.gitignore`, so nothing you put there is ever committed.
+
+# Path to your Android SDK.
+# Android Studio writes this line itself the first time it opens the project,
+# so an existing `local.properties` usually has it already.
+sdk.dir=/path/to/Android/Sdk
+
+# Cloud provider API keys.
+# Every key below is optional: leave it empty, or leave the line out, and the build still
+# succeeds -- only that provider fails to authenticate at runtime. The `lite` flavor ignores
+# all of them and is always built without the proprietary cloud providers.
+#
+# An environment variable of the same name wins over the value written here, so CI can keep
+# passing the keys through the environment. For a local build this file is all you need.
+
+# Release builds, e.g. `./gradlew assemblePlaystoreRelease`
+DROPBOX_API_KEY=
+PCLOUD_CLIENT_ID=
+ONEDRIVE_API_KEY=
+ONEDRIVE_API_REDIRCT_URI=
+
+# Debug builds, e.g. `./gradlew assemblePlaystoreDebug`
+DROPBOX_API_KEY_DEBUG=
+PCLOUD_CLIENT_ID_DEBUG=
+ONEDRIVE_API_KEY_DEBUG=
+ONEDRIVE_API_REDIRCT_URI_DEBUG=

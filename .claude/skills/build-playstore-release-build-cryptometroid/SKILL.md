@@ -120,8 +120,10 @@ are on, and ask whether to switch to the rebrand branch rather than proceeding.
 - This signs a *release* build with the *debug* keystore. That is fine for sideloading onto
   the user's own device, but such an APK must never be published to any distribution channel
 - Cloud provider API keys (`DROPBOX_API_KEY`, `ONEDRIVE_API_KEY`, `PCLOUD_CLIENT_ID`) are read
-  from environment variables at build time. Without them the build still succeeds, but the
-  corresponding cloud integrations will not authenticate at runtime
+  from `local.properties` in the repository root, or from an environment variable of the same
+  name, which takes precedence. `local.properties.example` lists every key. Without them the
+  build still succeeds, but the corresponding cloud integrations will not authenticate at
+  runtime
 
 ## TODO
 
